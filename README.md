@@ -19,6 +19,9 @@ in water.
 A directional field is drawn for each glyph.
 The line integral is computed between the inputted gesture 
 and each glyph field.
+This technique works well for gesture input, but would not work for OCR,
+as the direction of the strokes is the main feature
+used for detection.
 
 [1]: https://en.wikipedia.org/wiki/Line_integral
 
