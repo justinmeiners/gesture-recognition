@@ -5,17 +5,22 @@ Handwriting and gesture recognition with line integrals.
 
 ![3 gesture recognition](screenshots/1.png)
 
-## Line Integrals
+## How it Works
 
-[Line integrals][1] allow one to compar
-
-
+[Line integrals][1] compute how closely
+a path agrees with a directional field.
+For example, one could compute the force
+of a swimmer swimming across a current
+in water.
 
 ![line integral gif](screenshots/line_integral_anim.gif)
 (Animation from Wikipedia)
 
-[1]: https://en.wikipedia.org/wiki/Line_integral
+A directional field is drawn for each glyph.
+The line integral is computed between the inputted gesture 
+and each glyph field.
 
+[1]: https://en.wikipedia.org/wiki/Line_integral
 
 # Project License
 
