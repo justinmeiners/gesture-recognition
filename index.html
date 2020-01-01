@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>McCulloch & Pitts Neural Net Simulator</title>
+
+        <style>
+        body {
+            background-color: white;
+            font-family: Lucida Console, Courier, monospace;
+        }
+
+        #content {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            max-width: 800px;
+        }
+
+        #main-canvas {
+            border: 1px solid black;
+        }
+
+    </style>
+    </head>
+
+    <body>
+        <div id="content">
+            <h2>Handwriting</h2>
+
+            <h4 id="score-label"></h4>
+
+            <canvas id="main-canvas" width="256" height="256"></canvas>
+
+            <br/>
+
+            <input id="char"></input>
+            <button id="save">Save</button>
+            <button id="new">New</button>
+        </div>
+       <script src="handwriting.js"></script>
+    </body>
+</html>
