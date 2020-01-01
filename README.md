@@ -5,6 +5,18 @@ Handwriting and gesture recognition with line integrals.
 
 ![3 gesture recognition](screenshots/1.png)
 
+## Line Integrals
+
+[Line integrals][1] allow one to compar
+
+
+
+![line integral gif](screenshots/line_integral_anim.gif)
+(Animation from Wikipedia)
+
+[1]: https://en.wikipedia.org/wiki/Line_integral
+
+
 # Project License
 
 Copyright (c) 2018 Justin Meiners
