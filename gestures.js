@@ -193,21 +193,75 @@ Vec.pathLen = function(path) {
 
 function lineIntegral(path, func) {
     var sum = 0;
+
     var i;
     for (i = 1; i < path.length; ++i) {
+        var r = path[i - 1];
+        var v = func(r);
+
         var dr = Vec.sub(path[i], path[i - 1]);
-        var v = func(path[i - 1])
         sum += Vec.dot(v, dr);
     }
     return sum;
+}
+
+
+function smoothGlyph(glyph) {
+    var smoothed = new Glyph(glyph.cols, glyph.rows);
+    smoothed.origin = glyph.origin;
+    smoothed.pathLen = glyph.pathLen;
+    
+    var row, col;
+
+    for (col = 0; col < glyph.cols; ++col) {
+        for (row = 0; row < glyph.rows; ++row) {
+            var i = row * glyph.cols + col;
+            var val = glyph.data[i];
+
+            //if (Math.abs(val.x) < 0.0001 && 
+            //    Math.abs(val.y) < 0.0001) {
+
+                var sum = val;
+                var n = 0;
+                if (col > 0) {
+                    sum = Vec.add(sum, glyph.data[i - 1]);
+                    ++n;
+                }
+                if (col < glyph.cols - 1) {
+                    sum = Vec.add(sum, glyph.data[i + 1]);
+                    ++n;
+                }
+
+                if (row > 0) {
+                    sum = Vec.add(sum, glyph.data[i - glyph.cols]);
+                    ++n;
+                }
+                if (row < glyph.rows - 1) {
+                    sum = Vec.add(sum, glyph.data[i + glyph.cols]);
+                    ++n;
+                }
+                sum = Vec.scale(sum, 1.0 / n);
+                if (sum.lenSqr() > 1) {
+                    sum = val.normed();
+                }
+                val = sum;
+            //}           
+
+            smoothed.data[i] = val;
+        }
+    }
+
+    console.log(smoothed);
+
+    return smoothed;
 }
 
 function nudgeGlyph(path, glyph) {
     var i;
     for (i = 1; i < path.length; ++i) {
         var dr = Vec.sub(path[i], path[i - 1]);
-        var v = glyph.lookup(path[i - 1]);
-        v = Vec.add(v, Vec.scale(dr, 5.0));
+        var v = glyph.at(path[i - 1]);
+        v = Vec.add(v, Vec.scale(dr, 7.0));
         if (v.lenSqr() > 1) {
             v = v.normed();
         }
@@ -216,13 +270,13 @@ function nudgeGlyph(path, glyph) {
     }
 }
 
-function Glyph(cols, rows, data) {
+function Glyph(cols, rows, opt_data) {
     this.cols = cols;
     this.rows = rows;
-    if (data) {
-        this.data = data;
+    if (opt_data) {
+        this.data = opt_data;
     } else {
-        this.data = Array.apply(null, Array(cols * rows)).map(function (x, i) {
+        this.data = Array.apply(null, new Array(cols * rows)).map(function (x, i) {
             return new Vec(0, 0);
             //return [i % 255, 255];
         })
@@ -233,7 +287,7 @@ function Glyph(cols, rows, data) {
     this.pathLen = 0;
 }
 
-Glyph.prototype.lookup = function(v) {
+Glyph.prototype.at = function(v) {
     var ix = Math.floor(v.x / this.cell.x);
     var iy = Math.floor(v.y / this.cell.y);
 
@@ -241,7 +295,7 @@ Glyph.prototype.lookup = function(v) {
         return new Vec(0, 0);
     }
 
-    return this.data[ix + iy * this.cols]
+    return this.data[ix + iy * this.cols];
 }
 
 Glyph.prototype.set = function(v, dir) {
@@ -258,12 +312,11 @@ Glyph.prototype.set = function(v, dir) {
 Glyph.prototype.toFunc = function(shift) {
     var glyph = this;
     return function(v) {
-
        if (shift) {
            v = Vec.sub(v, shift);
        }
 
-       return glyph.lookup(v);
+       return glyph.at(v);;
     };
 }
 
@@ -348,6 +401,8 @@ function getMousePos(canvas, e) {
     return new Vec(e.clientX - rect.left, e.clientY - rect.top);
 }
 
+var GLYPH_SIZE = 16;
+
 function Sim() {
     this.canvas = document.getElementById('main-canvas');
     this.ctx = this.canvas.getContext('2d', { alpha: false });
@@ -356,7 +411,7 @@ function Sim() {
     this.canvas.onmouseup = this.mouseUp.bind(this);
     this.canvas.onmousemove = this.mouseMove.bind(this);
     
-    this.glyph = new Glyph(16, 16);
+    this.glyph = new Glyph(GLYPH_SIZE, GLYPH_SIZE);
 
     this.shift = new Vec(0, 0);
     this.symbols = {};
@@ -397,34 +452,38 @@ Sim.prototype.mouseUp = function(e) {
 
     var centroid = Vec.centroid(scaledPath);
 
-
-    if (e.ctrlKey) {
+    if (e.shiftKey) {
+        this.glyph = smoothGlyph(this.glyph);
+    } else if (e.ctrlKey) {
         nudgeGlyph(scaledPath, this.glyph);
-        this.glyph.origin = Vec.lerp(this.glyph.origin, centroid, 0.3);
-        this.glyph.pathLen = lerp(this.glyph.pathLen, Vec.pathLen(scaledPath), 0.3);
+        this.glyph.origin = Vec.lerp(this.glyph.origin, centroid, 0.4);
+        var score = Vec.pathLen(scaledPath) - lineIntegral(scaledPath, this.glyph.toFunc(shift));
+        this.glyph.pathLen = lerp(this.glyph.pathLen, score , 0.4);
         console.log(this.glyph.pathLen);
     } else {
-        var best = 0.0;
+        var best = Number.POSITIVE_INFINITY;
         var bestSymbol = null;
 
         for (var sym in sim.symbols) {
             var testGlyph = sim.symbols[sym];
             var shift = Vec.sub(centroid, testGlyph.origin);
-            var score = lineIntegral(scaledPath, testGlyph.toFunc(shift));
+            var score = Vec.pathLen(scaledPath) - lineIntegral(scaledPath, testGlyph.toFunc(shift));
+            var cost = Math.abs(testGlyph.pathLen - score);
 
-            console.log(sym, score);
+
+            console.log(sym, cost);
             //score /= testGlyph.pathLen;
-            console.log(sym, score);
+            //console.log(sym, score);
 
-            if (score > best) {
-                best = score;
+            if (cost < best) {
+                best = cost;
                 bestSymbol = sym;
             }
         }
 
         if (bestSymbol) {
             var label = document.getElementById("score-label");
-            label.innerText = bestSymbol + " " + best.toFixed(3);
+            label.innerText = 'Guess: ' + bestSymbol + " Score: " + best.toFixed(3);
             this.glyph = sim.symbols[bestSymbol];
             this.shift = Vec.sub(centroid, this.glyph.origin);
         }
@@ -442,7 +501,7 @@ btn.onclick = function() {
 
 btn = document.getElementById("new");
 btn.onclick = function() {
-    sim.glyph = new Glyph(16, 16);
+    sim.glyph = new Glyph(GLYPH_SIZE, GLYPH_SIZE);
     sim.shift = new Vec(0.0, 0.0);
     drawSim();
 };
@@ -490,14 +549,16 @@ function drawDataGlyph(ctx, glyph, w, h) {
 function drawField(ctx, func, w, h, cols, rows) {
     var cell = new Vec(1 / cols, 1 / rows);
     var o = new Vec();
+    var unitLength = cell.len() * 0.5;
 
     var row, col;
     var entry, dir;
 
     ctx.strokeStyle = "#000000"
     ctx.beginPath() 
-    for (col = 0; col < cols; ++col) {
-        for (row = 0; row < rows; ++row) {
+
+    for (row = 0; row < rows; ++row) {
+        for (col = 0; col < cols; ++col) {
             o.x = col / cols + cell.x / 2;
             o.y = row / rows + cell.y / 2;
             ctx.rect(o.x * w, o.y * h, 1, 1)
@@ -507,12 +568,13 @@ function drawField(ctx, func, w, h, cols, rows) {
 
     ctx.strokeStyle = "#FF0000"
     ctx.beginPath() 
-    for (col = 0; col < cols; ++col) {
-        for (row = 0; row < rows; ++row) {
+
+    for (row = 0; row < rows; ++row) {
+        for (col = 0; col < cols; ++col) {
             o.x = col / cols + cell.x / 2;
             o.y = row / rows + cell.y / 2;
             ctx.moveTo(o.x * w, o.y * h);
-            var dir = Vec.scale(func(o), 0.05);
+            var dir = Vec.scale(func(o), unitLength);
             
             var end = Vec.add(o, dir);
             ctx.lineTo(end.x * w, end.y * h);
@@ -541,6 +603,7 @@ function drawPath(ctx, path) {
 var sim = new Sim()
 drawSim();
 
+/*
 sim.symbols["1"] = Glyph.load("BQEQABAAI8gAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ/9A/0AoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPv9C/0L/Tp8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABC/z//Qf9F/2MuAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEL/Pv9A/0lXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPv8+/0D/QZ8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+/z7/QP9CqgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//P/9A/0O0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP+89/0D/WBIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABASz7/Rf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQP9B/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9/0P/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD5pT5EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuR6/DwAAAAAAAAAAAAAAAAAA");
 
 sim.symbols["2"] = Glyph.load("BQEQABAAH6UAAQAAAAAAAAAAAAAALQBLB4kAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD0qvr/Av8R/xJ0KHcAAAAAAAAAAAAAAAAAAAAAAAAAAO7/7P8C/xD/Gv8k1DJqAAAAAAAAAAAAAAAAAAAAAAAA4P/7ZAM8G+om/zT/PdwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABbOUexPf9B9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBMW/9S/1T6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAGW1Yv9e/1z/AAAAAAAAAAAAAAAAAAAAAAAAAABjJ2rLY/9k/2P/ZFkAAAAAAAAAAAAAAAAAAAAAAABWL1XQY/9k/1//VGcAAAAAAAAAAAAAAAAAAAAAAAAAAEJpSP9M/2fMQH0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAMdAp/yX/B/8F/wP/Bv8AZAAAAAAAAAAAAAAAAAAAAAAlWQ3/Cf8O/wf/B/8D/98OAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD0UJdQRfGhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
@@ -559,5 +622,6 @@ sim.symbols["8"] = Glyph.load("BQEQABAAIJ8AAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 sim.symbols["9"] = Glyph.load("BQEQABAAHJ8AAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABYc3aedP9+/4T/gv9KhgAAAAAAAAAAAAAAAAAAAABUVWL7Zv9s/3b/ff94/69BAAAAAAAAAAAAAAAAAABUM1f/XP9dzV5YAADGVgN4Q6UAAAAAAAAAAAAAAAAAAEhHTP9R/1R9AAAAANT/CZ46agAAAAAAAAAAAAAAAAAAOrVD/0PcAAAAAORA1v8etD/RAAAAAAAAAAAAAAAAAAAreC7/L9/6gu766P/Z/z3/QO8AAAAAAAAAAAAAAAAAAAAAI7gI//3/7f/p/9eQQ/9B7wAAAAAAAAAAAAAAAAAAAAAVRQhm/r34p+J4QlBE/0H/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABEWkT/QscAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEOHQ/9AkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQNFC/z6VAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABFxED/PMgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEM8PP88aQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuUgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
+*/
 
 updateGlyphs();
