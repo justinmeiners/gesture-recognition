@@ -604,7 +604,7 @@ function drawField(ctx, func, w, h, cols, rows) {
 }
 
 function drawPath(ctx, path) {
-    ctx.strokeStyle = "#00FF00";
+    ctx.strokeStyle = "#0000FF";
     ctx.lineWidth = 2;
     ctx.beginPath();
 
