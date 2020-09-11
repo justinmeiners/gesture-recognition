@@ -516,13 +516,13 @@ btn.onclick = function() {
 btn = document.getElementById("smooth");
 btn.onclick = function() {
     sim.glyph = smoothGlyph(sim.glyph);
-    updateGlyphs();
+    drawSim();
 };
 
 btn = document.getElementById("delete-all");
 btn.onclick = function() {
     sim.symbols = {};
-    drawSim();
+    updateGlyphs();
 };
 
 
