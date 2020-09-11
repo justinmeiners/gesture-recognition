@@ -500,6 +500,9 @@ btn.onclick = function() {
     console.log(sim.glyph.save());
 
     updateGlyphs();
+
+    sim.path = null;
+    drawSim();
 };
 
 btn = document.getElementById("new");
