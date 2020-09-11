@@ -516,7 +516,7 @@ btn.onclick = function() {
 btn = document.getElementById("smooth");
 btn.onclick = function() {
     sim.glyph = smoothGlyph(sim.glyph);
-    drawSim();
+    updateGlyphs();
 };
 
 btn = document.getElementById("delete-all");
