@@ -453,7 +453,7 @@ Sim.prototype.mouseUp = function(e) {
 
     var centroid = Vec.centroid(scaledPath);
 
-    if (e.ctrlKey) {
+    if (e.shiftKey) {
         nudgeGlyph(scaledPath, this.glyph);
         this.glyph.origin = Vec.lerp(this.glyph.origin, centroid, 0.5);
         //var score = Vec.pathLen(scaledPath) - lineIntegral(scaledPath, this.glyph.toFunc(shift));
