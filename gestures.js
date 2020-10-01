@@ -422,6 +422,10 @@ Sim.prototype.mouseDown = function(e) {
     this.path = []
     this.path.push(mp);
     this.dragging = true;
+
+    // Calling preventDefault ensures that if the user drags outside of the
+    // canvas, they won't start selecting text in the document.
+    e.preventDefault();
 };
 
 
