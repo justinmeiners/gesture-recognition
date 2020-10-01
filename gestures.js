@@ -408,6 +408,7 @@ function Sim() {
 
     this.canvas.onmousedown = this.mouseDown.bind(this);
     this.canvas.onmouseup = this.mouseUp.bind(this);
+    this.canvas.onmouseout = this.mouseOut.bind(this);
     this.canvas.onmousemove = this.mouseMove.bind(this);
     
     this.glyph = new Glyph(GLYPH_SIZE, GLYPH_SIZE);
@@ -438,8 +439,25 @@ Sim.prototype.mouseMove = function(e) {
 }
 
 Sim.prototype.mouseUp = function(e) {
+    if (!this.dragging) {
+        return;
+    }
+
     var mp = getMousePos(this.canvas, e);
     this.path.push(mp);
+
+    this.endDrag(e);
+}
+
+Sim.prototype.mouseOut = function(e) {
+    if (!this.dragging) {
+        return;
+    }
+
+    this.endDrag(e);
+}
+
+Sim.prototype.endDrag = function(e) {
     this.dragging = false;
 
     var w = this.canvas.width;
